@@ -30,6 +30,7 @@
 #include "crypto/pbkdf2.hpp"
 #include "crypto/sha256.hpp"
 #include "crypto/xchacha20.hpp"
+#include "crypto/crc32.hpp"
 #include "setup/component.hpp"
 #include "setup/data.hpp"
 #include "setup/delete.hpp"
@@ -204,6 +205,11 @@ void info::try_load(std::istream & is, entry_types entries, util::codepage_id fo
 	load_entries(*reader, entries, header.task_count, tasks, Tasks);
 	debug("loading directories");
 	load_entries(*reader, entries, header.directory_count, directories, Directories);
+	debug("slipping issig keys");
+	for(size_t i = 0; i < header.issig_key_count; i++) {
+		issig_key_entry entry;
+		entry.load(*reader, *this);
+	}
 	debug("loading files");
 	load_entries(*reader, entries, header.file_count, files, Files);
 	debug("loading icons");
@@ -238,10 +244,50 @@ void info::try_load(std::istream & is, entry_types entries, util::codepage_id fo
 	check_is_end(reader, "unknown data at end of secondary header stream");
 }
 
-void info::load(std::istream & is, entry_types entries, util::codepage_id force_codepage) {
-	
+void info::load(std::istream & is, entry_types entries, util::codepage_id force_codepage,
+				boost::uint32_t loader_revision) {
+
 	version.load(is);
-	
+	if(loader_revision == 2 && version >= INNO_VERSION(6, 5, 0)) {
+		version.set_64bit();
+	}
+
+	if(version >= INNO_VERSION(6, 5, 0)) {
+		boost::uint32_t eh_expected_crc = util::load<boost::uint32_t>(is);
+
+		encryption_header eh;
+		if(is.read(reinterpret_cast<char*>(&eh), sizeof(eh)).fail()) {
+			throw std::runtime_error("failed to read encryption header");
+		}
+
+		crypto::crc32 eh_crc;
+		eh_crc.init();
+		eh_crc.update(reinterpret_cast<const char*>(&eh), sizeof(eh));
+		if(eh_crc.finalize() != eh_expected_crc) {
+			//throw std::runtime_error("encryption header CRC mismatch");
+		}
+
+		if(eh.encryption_use == 2) {
+			throw std::runtime_error("full encryption mode is not supported");
+		}
+
+		if(eh.encryption_use == 1) {
+			header.password.type = crypto::PBKDF2_SHA256_XChaCha20;
+			header.password_salt.resize(44);
+			std::memcpy(&header.password_salt[0], eh.kdf_salt, 16);
+			util::little_endian::store<boost::uint32_t>(
+				boost::uint32_t(eh.kdf_iterations), &header.password_salt[16]
+			);
+			std::memcpy(&header.password_salt[20], &eh.base_nonce, sizeof(eh.base_nonce));
+
+			std::memcpy(header.password.sha256, &eh.password_test, 4);
+		} else {
+			header.password.type = crypto::None;
+			header.password_salt.clear();
+			std::memset(header.password.sha256, 0, 4);
+		}
+	}
+
 	if(!version.known) {
 		if(entries & NoUnknownVersion) {
 			std::ostringstream oss;

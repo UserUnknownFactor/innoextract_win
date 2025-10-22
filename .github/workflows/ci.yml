@@ -1,6 +1,7 @@
 name: Release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - '*'
@@ -71,13 +72,26 @@ jobs:
 
           echo "UPLOAD_FILE=$ZIP_NAME" >> $env:GITHUB_ENV
 
+          $TAG = $VERSION
+          if ($TAG.Length -ge 3) {
+            $X = $TAG[0]
+            $Y = $TAG[1]
+            $Z = $TAG[2]
+            $INNO_VERSION = "$X.$Y.$Z"
+          } else {
+            $INNO_VERSION = "dev"
+          }
+
+          echo "INNO_VERSION=$INNO_VERSION" >> $env:GITHUB_ENV
+
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v2
         #if: startsWith(github.ref, 'refs/tags/')
         with:
-          name: Release ${{ github.ref_name }}
+          name: Windows version
+          body: Latest innoextract Windows x64 build with support of Inno Setup installers up to version ${{ env.INNO_VERSION }}
           files: ${{ env.UPLOAD_FILE }}
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false

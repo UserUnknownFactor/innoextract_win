@@ -1,1 +1,3 @@
-/*.diff
+*.diff
+*.cmd
+build

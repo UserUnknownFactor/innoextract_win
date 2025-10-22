@@ -173,13 +173,17 @@ else()
 	set(INNOEXTRACT_HAVE_LZMA 0)
 endif()
 
-find_package(Boost REQUIRED COMPONENTS
-	iostreams
-	filesystem
-	date_time
-	system
-	program_options
-)
+set(BOOST_REQUIRED_COMPONENTS
+ 	iostreams
+ 	filesystem
+ 	date_time
+ 	program_options
+ )
+find_package(Boost REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+if(Boost_VERSION VERSION_LESS 1.69.0)
+	find_package(Boost REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS} system)
+endif()
+
 list(APPEND LIBRARIES ${Boost_LIBRARIES})
 link_directories(${Boost_LIBRARY_DIRS})
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
@@ -416,6 +420,8 @@ set(INNOEXTRACT_SOURCES
 	src/setup/info.cpp
 	src/setup/ini.hpp
 	src/setup/ini.cpp
+	src/setup/issigkey.hpp
+	src/setup/issigkey.cpp
 	src/setup/item.hpp
 	src/setup/item.cpp
 	src/setup/language.hpp

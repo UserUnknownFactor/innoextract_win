@@ -39,6 +39,7 @@
 #include "setup/version.hpp"
 #include "stream/lzma.hpp"
 #include "util/endian.hpp"
+#include "util/output.hpp"
 #include "util/enum.hpp"
 #include "util/load.hpp"
 #include "util/log.hpp"
@@ -154,6 +155,18 @@ block_reader::pointer block_reader::get(std::istream & base, const setup::versio
 	
 	USE_ENUM_NAMES(block_compression)
 	
+#ifdef DEBUG
+	std::streampos current_pos = base.tellg();
+	char dump_buffer[128];
+	std::streamsize bytes_read = base.read(dump_buffer, sizeof(dump_buffer)).gcount();
+	base.clear();
+	
+	debug("block header at offset " << print_hex(current_pos) << ":");
+	debug(print_hex_dump(dump_buffer, bytes_read, current_pos));
+
+	base.seekg(current_pos);
+#endif
+	
 	boost::uint32_t expected_checksum = util::load<boost::uint32_t>(base);
 	crypto::crc32 actual_checksum;
 	actual_checksum.init();
@@ -166,8 +179,12 @@ block_reader::pointer block_reader::get(std::istream & base, const setup::versio
 		stored_size = actual_checksum.load<boost::uint32_t>(base);
 		boost::uint8_t compressed = actual_checksum.load<boost::uint8_t>(base);
 		
+#ifdef DEBUG
+		debug("" << (version.is_64bit() ? "64 bit offsets" : "32 bit offsets"));
+		debug("read stored_size: " << print_hex(stored_size) << " (" << stored_size << " bytes)");
+		debug("compressed flag: " <<  print_hex(boost::uint32_t(compressed)));
+#endif
 		compression = compressed ? (version >= INNO_VERSION(4, 1, 6) ? LZMA1 : Zlib) : Stored;
-		
 	} else {
 		
 		boost::uint32_t compressed_size = actual_checksum.load<boost::uint32_t>(base);

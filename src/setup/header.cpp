@@ -271,6 +271,11 @@ void header::load(std::istream & is, const version & version) {
 	} else {
 		close_applications_filter_excludes.clear();
 	}
+	if(version >= INNO_VERSION(6, 5, 0)) {
+		is >> util::binary_string(seven_zip_library_name);
+	} else {
+		seven_zip_library_name.clear();
+	}
 	if(version >= INNO_VERSION(5, 2, 5)) {
 		is >> util::ansi_string(license_text);
 		is >> util::ansi_string(info_before);
@@ -324,6 +329,11 @@ void header::load(std::istream & is, const version & version) {
 	}
 	
 	directory_count = util::load<boost::uint32_t>(is, version.bits());
+	if(version >= INNO_VERSION(6, 5, 0)) {
+		issig_key_count = util::load<boost::uint32_t>(is);
+	} else {
+		issig_key_count = 0;
+	}
 	file_count = util::load<boost::uint32_t>(is, version.bits());
 	data_entry_count = util::load<boost::uint32_t>(is, version.bits());
 	icon_count = util::load<boost::uint32_t>(is, version.bits());
@@ -382,7 +392,10 @@ void header::load(std::istream & is, const version & version) {
 		image_alpha_format = AlphaIgnored;
 	}
 	
-	if(version >= INNO_VERSION(6, 4, 0)) {
+	if(version >= INNO_VERSION(6, 5, 0)) {
+		// moved to encryption header (read in setup::info::load)
+		password.type = crypto::PBKDF2_SHA256_XChaCha20;
+	} else if(version >= INNO_VERSION(6, 4, 0)) {
 		is.read(password.sha256, 4);
 		password.type = crypto::PBKDF2_SHA256_XChaCha20;
 	} else if(version >= INNO_VERSION(5, 3, 9)) {
@@ -395,7 +408,9 @@ void header::load(std::istream & is, const version & version) {
 		password.crc32 = util::load<boost::uint32_t>(is);
 		password.type = crypto::CRC32;
 	}
-	if(version >= INNO_VERSION(6, 4, 0)) {
+	if(version >= INNO_VERSION(6, 5, 0)) {
+		// moved to encryption header (read in setup::info::load)
+	} else if(version >= INNO_VERSION(6, 4, 0)) {
 		password_salt.resize(44); // PBKDF2 salt + iteration count + ChaCha2 base nonce
 		is.read(&password_salt[0], std::streamsize(password_salt.length()));
 	} else if(version >= INNO_VERSION(4, 2, 2)) {
@@ -767,10 +782,11 @@ void header::decode(util::codepage_id codepage) {
 	util::to_utf8(create_uninstall_registry_key, codepage, &lead_bytes);
 	util::to_utf8(uninstallable, codepage);
 	util::to_utf8(close_applications_filter, codepage);
+	util::to_utf8(close_applications_filter_excludes, codepage);
+	util::to_utf8(seven_zip_library_name, codepage);
 	util::to_utf8(setup_mutex, codepage, &lead_bytes);
 	util::to_utf8(changes_environment, codepage);
 	util::to_utf8(changes_associations, codepage);
-	util::to_utf8(close_applications_filter_excludes, codepage);
 	
 }
 

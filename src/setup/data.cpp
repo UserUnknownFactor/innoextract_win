@@ -55,8 +55,12 @@ void data_entry::load(std::istream & is, const info & i) {
 			chunk.first_slice--, chunk.last_slice--;
 		}
 	}
-	
-	chunk.sort_offset = chunk.offset = util::load<boost::uint32_t>(is);
+
+	if(i.version >= INNO_VERSION(6, 5, 2)) {
+		chunk.sort_offset = chunk.offset = util::load<boost::int64_t>(is);
+	} else {
+		chunk.sort_offset = chunk.offset = util::load<boost::uint32_t>(is);
+	}
 	
 	if(i.version >= INNO_VERSION(4, 0, 1)) {
 		file.offset = util::load<boost::uint64_t>(is);

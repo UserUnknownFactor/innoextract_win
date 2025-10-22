@@ -988,7 +988,7 @@ void process_file(const fs::path & installer, const extract_options & o) {
 	ifs.seekg(offsets.header_offset);
 	setup::info info;
 	try {
-		info.load(ifs, entries, o.codepage);
+		info.load(ifs, entries, o.codepage, offsets.revision);
 	} catch(const setup::version_error &) {
 		fs::path headerfile = installer;
 		headerfile.replace_extension(".0");

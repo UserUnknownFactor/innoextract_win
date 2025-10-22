@@ -31,6 +31,7 @@
 
 #include "setup/header.hpp"
 #include "setup/version.hpp"
+#include "setup/issigkey.hpp"
 #include "util/encoding.hpp"
 #include "util/flags.hpp"
 
@@ -50,6 +51,20 @@ struct registry_entry;
 struct run_entry;
 struct task_entry;
 struct type_entry;
+
+#pragma pack(push, 1)
+struct encryption_header {
+    boost::uint8_t encryption_use; // 0=none, 1=files, 2=full
+    boost::uint8_t kdf_salt[16];
+    boost::int32_t kdf_iterations;
+    struct {
+        boost::int64_t random_xor_start_offset;
+        boost::int32_t random_xor_first_slice;
+        boost::int32_t remaining_random[3];
+    } base_nonce;
+    boost::int32_t password_test;
+};
+#pragma pack(pop)
 
 /*!
  * Class used to hold and load the various \ref setup headers.
@@ -106,6 +121,7 @@ struct info {
 	std::vector<run_entry>        uninstall_run_entries;    //! \c UninstallRunEntries
 	std::vector<task_entry>       tasks;                    //! \c Tasks
 	std::vector<type_entry>       types;                    //! \c Types
+	std::vector<issig_key_entry> issig_keys;                    //! \c ISSigKeys
 	
 	//! Images displayed in the installer UI.
 	//! Loading enabled by \c WizardImages
@@ -130,7 +146,8 @@ struct info {
 	 * \param entries What kinds of entries to load.
 	 * \param force_codepage Windows codepage to use for strings in ANSI installers.
 	 */
-	void load(std::istream & is, entry_types entries, util::codepage_id force_codepage = 0);
+	void load(std::istream & is, entry_types entries, util::codepage_id force_codepage = 0,
+          boost::uint32_t loader_revision = 1);
 	
 	std::string get_key(const std::string & password);
 	
